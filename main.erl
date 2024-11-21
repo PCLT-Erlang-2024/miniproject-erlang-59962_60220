@@ -1,5 +1,5 @@
 -module(main).
--export([start/0, stop/0, allocate/0, deallocate/1, initConveyors/1]).
+-export([start/0]).
 
 start() ->
     {ok, belts} = io:read("Number of Belts"),
@@ -21,15 +21,11 @@ initTrucks(belts) ->
     
 loopConveyors(Conveyors) ->
     receive
-        {request, Pid, allocate} ->
-            {NewConveyors, Reply} = allocate(Conveyors, Pid),
-            reply(Pid, Reply),
-            loopConveyors(NewConveyors);
-        {request, Pid , {deallocate, ConveyorID}} ->
-            NewConveyors = deallocate(Conveyors, ConveyorID),
-            reply(Pid, ok),
-            loopConveyors(NewConveyors);
-    {request, Pid, stop} ->
+        {request, Pid, send_package} ->
+            allocate(Conveyors, Pid),
+            reply(Pid, add_package()),
+            loopConveyors(Conveyors);
+        {request, Pid, stop} ->
             reply(Pid, ok)
     end.
 
@@ -39,22 +35,25 @@ loopTrucks(Trucks) ->
             {NewTrucks, Reply} = allocate(Trucks, Pid),
             reply(Pid, Reply),
             loopTrucks(NewTrucks);
-        {request, Pid , {deallocate, TruckID}} ->
-            NewTrucks = deallocate(Trucks, TruckID),
-            reply(Pid, ok),
-            loopTrucks(NewTrucks);
-    {request, Pid, stop} ->
+        {request, Pid, stop} ->
             reply(Pid, ok)
     end.
 
 reply(Pid, Reply) -> Pid ! {reply, Reply}.
 
 
-stop() -> call(stop).
-allocate() -> call(allocate).
-deallocate(Cluster) -> call({deallocate, Cluster}).
-call(Message) ->
-    clusters ! {request, self(), Message},
+send_package() -> call_conveyor(send_package).
+add_package() -> call_truck(add_package).
+stop_conveyors() -> call_conveyor(stop).
+stop_trucks() -> call_truck(stop).
+call_conveyor(Message) ->
+    conveyors ! {request, self(), Message},
+    receive
+        {reply, Reply} -> Reply
+    end.
+
+call_truck({Message, ClusterID}) ->
+    trucks ! {request, self(), Message},
     receive
         {reply, Reply} -> Reply
     end.
@@ -69,3 +68,7 @@ allocate({[ClusterID|Free], Allocated}, Pid) ->
 deallocate({Free, Allocated}, ClusterID) ->
     NewAllocated = lists:keydelete(ClusterID, 1, Allocated),
     {[ClusterID|Free], NewAllocated}.
+
+allocate_truck({Free, Allocated}, Pid, ClusterID) -> {
+    {{lists:keydelete(ClusterID, 1, Free), [{ClusterID, Pid}|Allocated]}, ok}
+}.

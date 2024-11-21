@@ -1,25 +1,48 @@
 -module(main).
--export([start/0, stop/0, allocate/0, deallocate/1, init/0]).
+-export([start/0, stop/0, allocate/0, deallocate/1, initConveyors/1]).
 
 start() ->
-    register(clusters, spawn(?MODULE, init, [])).
+    {ok, belts} = io:read("Number of Belts"),
+    {ok, size} = io:read("Max truck size"),
+    register(conveyors, spawn(?MODULE, initConveyors(belts))),
+    register(trucks, spawn(?MODULE, initTrucks(belts))).
 
-init() ->
-    Clusters = {get_clusters(), []}, % {Free, Allocated}
-    loop(Clusters).
+get_List(N) -> get_List(N, []).
+get_List(0, clusters) -> lists:reverse(clusters);
+get_List(N, clusters) when N > 0 -> get_List(N - 1 , [N, clusters]).
 
-get_clusters() -> [c1, c2, c3, c4, c5].
+initConveyors(belts) ->     
+    Conveyors = {get_List(belts), []},
+    loopConveyors(Conveyors).
 
-loop(Clusters) ->
+initTrucks(belts) ->     
+    Trucks = {get_List(belts), []},
+    loopTrucks(Trucks).
+    
+loopConveyors(Conveyors) ->
     receive
         {request, Pid, allocate} ->
-            {NewClusters, Reply} = allocate(Clusters, Pid),
+            {NewConveyors, Reply} = allocate(Conveyors, Pid),
             reply(Pid, Reply),
-            loop(NewClusters);
-        {request, Pid , {deallocate, ClusterID}} ->
-            NewClusters = deallocate(Clusters, ClusterID),
+            loopConveyors(NewConveyors);
+        {request, Pid , {deallocate, ConveyorID}} ->
+            NewConveyors = deallocate(Conveyors, ConveyorID),
             reply(Pid, ok),
-            loop(NewClusters);
+            loopConveyors(NewConveyors);
+    {request, Pid, stop} ->
+            reply(Pid, ok)
+    end.
+
+loopTrucks(Trucks) ->
+    receive
+        {request, Pid, allocate} ->
+            {NewTrucks, Reply} = allocate(Trucks, Pid),
+            reply(Pid, Reply),
+            loopTrucks(NewTrucks);
+        {request, Pid , {deallocate, TruckID}} ->
+            NewTrucks = deallocate(Trucks, TruckID),
+            reply(Pid, ok),
+            loopTrucks(NewTrucks);
     {request, Pid, stop} ->
             reply(Pid, ok)
     end.

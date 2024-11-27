@@ -1,0 +1,18 @@
+In our implementation, the user starts by chosing the task
+he wants to execute, followed by the number of trucks and
+their size, then the execution is separated between each task.
+
+task 1: We start by creating the conveyors and the trucks,
+    each group being a thread and a cluster server. From now on each 1/5 of a second a new package is
+    sent to the conveyors cluster, where its sent to the corresponding truck.
+
+task 2: receives an extra input for each package max size.
+    The execution is the same as task 1 with the extra of
+    each package having a random size when creating them.
+
+task 3: also receives as input the maximum time of each
+    truck while "traveling". The execution is the same
+    as the task before but the truck is kept allocated while sleeps for
+    a random time simulating the travel.
+
+The conveyors keep getting new packages while the truck is still dealing with the previous one.
